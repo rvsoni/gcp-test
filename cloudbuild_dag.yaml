@@ -7,20 +7,15 @@ options:
   logging: GCS_ONLY
 
 steps:
-### Dev needs to add tests step ###
-  - id: deploy-devint
-    name: gcr.io/cloud-builders/gsutil
+  - id: sync-repo-to-bucket
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
     args:
-      - "-m"
-      - "rsync"
-      - "-r"
-      - "-d"
-      - "-x"
-      - "^\\.git/.*"
-      - "-x"
-      - ".*/__pycache__/.*"
-      - "-x"
-      - ".*\\.pyc$"
-      - "/workspace"
-      - "gs://${_BUCKET_NAME}/"
+      - -c
+      - |
+        set -euo pipefail
+        gsutil -m rsync -r -d \
+          -x '^\.git/.*' \
+          -x '.*/__pycache__/.*' \
+          -x '.*\.pyc$$' \
+          /workspace "gs://${_BUCKET_NAME}/"

@@ -7,8 +7,18 @@ options:
   logging: GCS_ONLY
 
 steps:
-  - name: ubuntu
+### Dev needs to add tests step ###
+  - id: deploy-devint
+    name: gcr.io/cloud-builders/gsutil
+    entrypoint: bash
     args:
-      - bash
       - -c
-      - echo "Replace this step with your real build."
+      - |
+        if [ "$BRANCH_NAME" = "devint" ]; then
+          gsutil -m rsync -r -d \
+            --exclude='.*__pycache__.*|.*\.pyc$$|.*__init__\.py$$' \
+            dags/ gs://$DEVINT_DAGS_BUCKET/ && \
+          gsutil -m rsync -r -d \
+            --exclude='.*__pycache__.*|.*\.pyc$$' \
+            tests/ gs://$DEVINT_DAGS_BUCKET/
+        fi

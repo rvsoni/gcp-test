@@ -1,124 +1,14 @@
+# Copy to repo root as cloudbuild_dag.yaml. Trigger must define substitution _BUILD_LOGS_BUCKET (Terraform does).
+# Required when the trigger sets service_account: set logsBucket (a) or options.logging CLOUD_LOGGING_ONLY (c).
+
+logsBucket: '${_BUILD_LOGS_BUCKET}'
+
+options:
+  logging: GCS_ONLY
+
 steps:
-### Dev needs to add tests step ###
-  - id: deploy-devint
-    name: gcr.io/cloud-builders/gsutil
-    entrypoint: bash
+  - name: ubuntu
     args:
+      - bash
       - -c
-      - |
-        if [ "$BRANCH_NAME" = "devint" ]; then
-          gsutil -m rsync -r -d \
-            --exclude='.*__pycache__.*|.*\.pyc$$|.*__init__\.py$$' \
-            dags/ gs://$DEVINT_DAGS_BUCKET/ && \
-          gsutil -m rsync -r -d \
-            --exclude='.*__pycache__.*|.*\.pyc$$' \
-            tests/ gs://$DEVINT_DAGS_BUCKET/
-        fi
-
-  - id: tag-devint
-    name: gcr.io/cloud-builders/git
-    secretEnv: ['GITHUB_TOKEN']
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if [ "$BRANCH_NAME" = "devint" ]; then
-          git remote set-url origin https://x-access-token:$$GITHUB_TOKEN@github.com/$GITHUB_ORG/$REPO_NAME.git
-          git fetch --tags
-          LATEST=$(git tag -l "*-dev" | sort -V | tail -1)
-          if [ -z "$LATEST" ]; then
-            NEW_TAG="1.0.1-dev"
-          else
-            BASE=${LATEST%-dev}
-            MAJOR=$(echo "$BASE" | cut -d. -f1)
-            MINOR=$(echo "$BASE" | cut -d. -f2)
-            PATCH=$(echo "$BASE" | cut -d. -f3)
-            NEW_TAG="$MAJOR.$MINOR.$((PATCH + 1))-dev"
-          fi
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
-        fi
-
-  - id: deploy-qa
-    name: gcr.io/cloud-builders/gsutil
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if [ "$BRANCH_NAME" = "qa" ]; then
-          gsutil -m rsync -r -d \
-            --exclude='.*__pycache__.*|.*\.pyc$$|.*__init__\.py$$' \
-            dags/ gs://$QA_DAGS_BUCKET/
-        fi
-
-  - id: tag-qa
-    name: gcr.io/cloud-builders/git
-    secretEnv: ['GITHUB_TOKEN']
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if [ "$BRANCH_NAME" = "qa" ]; then
-          git config user.email "cloudbuild@wisp.ai"
-          git config user.name "Cloud Build"
-          git remote set-url origin https://x-access-token:$$GITHUB_TOKEN@github.com/$GITHUB_ORG/$REPO_NAME.git
-          git fetch --tags
-          LATEST_DEV=$(git tag -l "*-dev" | sort -V | tail -1)
-          if [ -z "$LATEST_DEV" ]; then
-            NEW_TAG="1.0.0-qa"
-          else
-            BASE=${LATEST_DEV%-dev}
-            MAJOR=$(echo "$BASE" | cut -d. -f1)
-            MINOR=$(echo "$BASE" | cut -d. -f2)
-            PATCH=$(echo "$BASE" | cut -d. -f3)
-            NEW_TAG="$MAJOR.$MINOR.$((PATCH + 1))-qa"
-          fi
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
-        fi
-
-  - id: deploy-prd
-    name: gcr.io/cloud-builders/gsutil
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if [ "$BRANCH_NAME" = "prd" ]; then
-          gsutil -m rsync -r -d \
-            --exclude='.*__pycache__.*|.*\.pyc$$|.*__init__\.py$$' \
-            dags/ gs://$PRD_DAGS_BUCKET/
-        fi
-
-  - id: tag-prd
-    name: gcr.io/cloud-builders/git
-    secretEnv: ['GITHUB_TOKEN']
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if [ "$BRANCH_NAME" = "prd" ]; then
-          git config user.email "cloudbuild@wisp.ai"
-          git config user.name "Cloud Build"
-          git remote set-url origin https://x-access-token:$$GITHUB_TOKEN@github.com/$GITHUB_ORG/$REPO_NAME.git
-          git fetch --tags
-          LATEST_QA=$(git tag -l "*-qa" | sort -V | tail -1)
-          if [ -z "$LATEST_QA" ]; then
-            NEW_TAG="1.0.0-prod"
-          else
-            BASE=$(echo "$LATEST_QA" | sed 's/-qa$//')
-            NEW_TAG="${BASE}-prod"
-          fi
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
-        fi
-
-substitutions:
-  DEVINT_DAGS_BUCKET: ox-deal-health-score-devint-composer-dags
-  QA_DAGS_BUCKET: ox-deal-health-score-qa-composer-dags
-  PRD_DAGS_BUCKET: ox-deal-health-score-prd-composer-dags
-  GITHUB_ORG: openx
-
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/github-token/versions/latest
-      env: 'GITHUB_TOKEN'
+      - echo "Replace this step with your real build."

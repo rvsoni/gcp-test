@@ -17,8 +17,8 @@ steps:
         if [ "$BRANCH_NAME" = "devint" ]; then
           gsutil -m rsync -r -d \
             --exclude='.*__pycache__.*|.*\.pyc$$|.*__init__\.py$$' \
-            dags/ gs://$DEVINT_DAGS_BUCKET/ && \
+            dags/ gs://$_BUCKET_NAME/ && \
           gsutil -m rsync -r -d \
             --exclude='.*__pycache__.*|.*\.pyc$$' \
-            tests/ gs://$DEVINT_DAGS_BUCKET/
+            tests/ gs://$_BUCKET_NAME/
         fi

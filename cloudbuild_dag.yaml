@@ -12,13 +12,15 @@ steps:
     name: gcr.io/cloud-builders/gsutil
     entrypoint: bash
     args:
-      - -c
-      - |
-        if [ "$BRANCH_NAME" = "main" ]; then
-          gsutil -m rsync -r -d \
-            --exclude='.*__pycache__.*|.*\.pyc$$|.*__init__\.py$$' \
-            dags/ gs://$_BUCKET_NAME/ && \
-          gsutil -m rsync -r -d \
-            --exclude='.*__pycache__.*|.*\.pyc$$' \
-            tests/ gs://$_BUCKET_NAME/
-        fi
+      - "-m"
+      - "rsync"
+      - "-r"
+      - "-d"
+      - "-x"
+      - "^\\.git/.*"
+      - "-x"
+      - ".*/__pycache__/.*"
+      - "-x"
+      - ".*\\.pyc$"
+      - "/workspace"
+      - "gs://${_BUCKET_NAME}/"

@@ -1,0 +1,5 @@
+env:
+  name: develop
+
+gcp:
+  project_id: my-gcp-project

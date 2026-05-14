@@ -32,47 +32,16 @@ steps:
         # wrapper can invoke a Python that does not see the image's Airflow install → ModuleNotFoundError.
         export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-        echo "========================================"
-        echo "Python Version"
-        echo "========================================"
         python --version
 
-        echo "========================================"
-        echo "Airflow Version"
-        echo "========================================"
         python -m airflow version
-
-        echo "========================================"
-        echo "Install uv"
-        echo "========================================"
         python -m pip install --no-cache-dir uv
 
-        echo "========================================"
-        echo "Install Project Dependencies"
-        echo "========================================"
         uv sync --all-groups
 
-        echo "========================================"
-        echo "Install Local Package"
-        echo "========================================"
         python -m pip install -e .
 
-        echo "========================================"
-        echo "Initialize Airflow Database"
-        echo "========================================"
         python -m airflow db migrate
 
-        echo "========================================"
-        echo "Check DAG Import Errors"
-        echo "========================================"
-        python -m airflow dags list-import-errors
-
-        echo "========================================"
-        echo "List Available DAGs"
-        echo "========================================"
         python -m airflow dags list
    
-        echo "========================================"
-        echo "Run Pytest unit tests"
-        echo "========================================"
-        

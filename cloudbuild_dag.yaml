@@ -12,10 +12,10 @@ steps:
       - -c
       - |
         set -euo pipefail
-        d='$$'
+
         escape_sed_repl() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/&/\\&/g'; }
-        sed -e 's#\$'"$${d}"'{ENV}#'"$(escape_sed_repl "${_BUCKET_NAME}")"'#g' \
-          -e 's#\$'"$${d}"'{PROJECT_ID}#'"$(escape_sed_repl "${PROJECT_ID}")"'#g'\
+        sed -e 's#\$${ENV}#'"$(escape_sed_repl "${_BUCKET_NAME}")"'#g' \
+            -e 's#\$${PROJECT_ID}#'"$(escape_sed_repl "${PROJECT_ID}")"'#g' \\
           /workspace/config.yaml > /workspace/config-2.yaml
               
         gsutil -m rsync -r -d \

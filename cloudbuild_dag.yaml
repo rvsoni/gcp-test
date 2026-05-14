@@ -21,11 +21,11 @@ steps:
               -e 's/\\/\\\\/g'
           }
        
-          ESCAPED_PROJECT_ID="$(escape_sed_repl "$PROJECT_ID")"
+          
 
           sed \
             
-            -e 's|${PROJECT_ID}|'"$ESCAPED_PROJECT_ID"'|g' \
+            -e 's|${PROJECT_ID}|'"$PROJECT_ID"'|g' \
             /workspace/config.yaml > /workspace/config-2.yaml
               
         gsutil -m rsync -r -d \

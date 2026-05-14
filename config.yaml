@@ -1,5 +1,7 @@
 env:
-  name: develop
+  name: ${ENV}
 
 gcp:
-  project_id: my-gcp-project
+  project_id: ${PROJECT_ID}
+  gcp_conn_id: gcp_conn
+  location: US

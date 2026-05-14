@@ -20,7 +20,7 @@ steps:
       - 'AIRFLOW__CORE__DAGS_FOLDER=/workspace/dags'
       - 'AIRFLOW__CORE__LOAD_EXAMPLES=False'
       - 'AIRFLOW__CORE__UNIT_TEST_MODE=True'
-      - 'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////workspace/.airflow/airflow.db'
+      - 'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db'
       - 'PYTHONPATH=/workspace/src:/workspace/dags'
 
     args:
@@ -30,8 +30,7 @@ steps:
 
         # Cloud Build runs as root. PATH often puts /home/airflow/.local/bin first; that airflow
         # wrapper can invoke a Python that does not see the image's Airflow install → ModuleNotFoundError.
-        export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        mkdir -p /workspace/.airflow
+        export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
         echo "========================================"
         echo "Python Version"

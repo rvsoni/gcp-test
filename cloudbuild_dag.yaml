@@ -7,8 +7,7 @@ steps:
   - id: airflow-dag-itest
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
-    env:
-      - 'MYENV=${_SOURCE_BRANCH}'
+    
     args:
       - -c
       - |
@@ -22,11 +21,10 @@ steps:
               -e 's/\\/\\\\/g'
           }
        
-        ESCAPED_ENV="$(escape_sed_repl "$MYENV")"
           ESCAPED_PROJECT_ID="$(escape_sed_repl "$PROJECT_ID")"
 
           sed \
-            -e 's|${ENV}|'"$ESCAPED_ENV"'|g' \
+            
             -e 's|${PROJECT_ID}|'"$ESCAPED_PROJECT_ID"'|g' \
             /workspace/config.yaml > /workspace/config-2.yaml
               

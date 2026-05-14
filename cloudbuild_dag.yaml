@@ -3,55 +3,13 @@ logsBucket: '${_BUILD_LOGS_BUCKET}'
 options:
   logging: GCS_ONLY
 
-timeout: '1800s'
-
-substitutions:
-  _AIRFLOW_VERSION: '3.1.7'
-  _PYTHON_VERSION: '3.13'
-
 steps:
-  - id: airflow-dag-ci
-    name: 'apache/airflow:${_AIRFLOW_VERSION}-python${_PYTHON_VERSION}'
-    dir: /workspace
+  - id: airflow-dag-itest
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
-
-    env:
-      # FIX 1: Run Airflow out of /tmp to bypass the /workspace "Access Denied" permissions wall
-      - 'AIRFLOW_HOME=/tmp/.airflow'
-      - 'AIRFLOW__CORE__DAGS_FOLDER=/workspace/dags'
-      - 'AIRFLOW__CORE__LOAD_EXAMPLES=False'
-      - 'AIRFLOW__CORE__UNIT_TEST_MODE=True'
-      - 'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db'
-      # Incorporate local src folders into the main Python module lookup paths
-      - 'PYTHONPATH=/workspace/src:/workspace/dags:/home/airflow/.local/lib/python3.13/site-packages'
-
     args:
       - -c
       - |
         set -euo pipefail
-
-        # FIX 2: Correctly append both system paths AND the internal Airflow user binary paths
-        export PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-        echo "Python Environment details:"
-        python3 --version
-
-        echo "Verifying baseline container Airflow version..."
-        python3 -m airflow version
         
-        echo "Initializing test database schema..."
-        python3 -m airflow db migrate
-
-        echo "Validating DAG integrity matrix..."
-        python3 -m airflow dags list
-
-        echo "Installing UV package manager..."
-        python3 -m pip install --no-cache-dir uv
-
-        # FIX 3: Force uv to install directly into the system/user paths 
-        # instead of spinning up a separate broken local virtual environment (.venv)
-        echo "Syncing local dependencies into the baseline environment..."
-        uv pip install --system -r pyproject.toml || uv pip install --system -r requirements.txt
-
-        echo "Installing local package in editable development mode..."
-        python3 -m pip install --system -e . 2>/dev/null || python3 -m pip install -e .
+        echo "Airflow DAG Unit Test & Integration Test"

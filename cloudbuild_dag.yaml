@@ -16,7 +16,7 @@ steps:
 
        
         sed \
-            -e "s|\$${ENV}|$$ENV|g" \
+            -e "s|\$${PROJECT_ID}|$$PROJECT_ID|g" \
             /workspace/config.yaml > /workspace/config-2.yaml
               
         gsutil -m rsync -r -d \

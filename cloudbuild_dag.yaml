@@ -30,7 +30,7 @@ steps:
 
         # Cloud Build runs as root. PATH often puts /home/airflow/.local/bin first; that airflow
         # wrapper can invoke a Python that does not see the image's Airflow install → ModuleNotFoundError.
-        export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
         python --version
 

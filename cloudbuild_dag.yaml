@@ -16,32 +16,42 @@ steps:
     entrypoint: bash
 
     env:
-      - 'AIRFLOW_HOME=/workspace/.airflow'
+      # FIX 1: Run Airflow out of /tmp to bypass the /workspace "Access Denied" permissions wall
+      - 'AIRFLOW_HOME=/tmp/.airflow'
       - 'AIRFLOW__CORE__DAGS_FOLDER=/workspace/dags'
       - 'AIRFLOW__CORE__LOAD_EXAMPLES=False'
       - 'AIRFLOW__CORE__UNIT_TEST_MODE=True'
       - 'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db'
-      - 'PYTHONPATH=/workspace/src:/workspace/dags'
+      # Incorporate local src folders into the main Python module lookup paths
+      - 'PYTHONPATH=/workspace/src:/workspace/dags:/home/airflow/.local/lib/python3.13/site-packages'
 
     args:
       - -c
       - |
         set -euo pipefail
 
-        # Cloud Build runs as root. PATH often puts /home/airflow/.local/bin first; that airflow
-        # wrapper can invoke a Python that does not see the image's Airflow install → ModuleNotFoundError.
-        export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        # FIX 2: Correctly append both system paths AND the internal Airflow user binary paths
+        export PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-        python --version
+        echo "Python Environment details:"
+        python3 --version
 
-        python -m airflow version
-        python -m pip install --no-cache-dir uv
+        echo "Verifying baseline container Airflow version..."
+        python3 -m airflow version
 
-        uv sync --all-groups
+        echo "Installing UV package manager..."
+        python3 -m pip install --no-cache-dir uv
 
-        python -m pip install -e .
+        # FIX 3: Force uv to install directly into the system/user paths 
+        # instead of spinning up a separate broken local virtual environment (.venv)
+        echo "Syncing local dependencies into the baseline environment..."
+        uv pip install --system -r pyproject.toml || uv pip install --system -r requirements.txt
 
-        python -m airflow db migrate
+        echo "Installing local package in editable development mode..."
+        python3 -m pip install --system -e . 2>/dev/null || python3 -m pip install -e .
 
-        python -m airflow dags list
-   
+        echo "Initializing test database schema..."
+        python3 -m airflow db migrate
+
+        echo "Validating DAG integrity matrix..."
+        python3 -m airflow dags list

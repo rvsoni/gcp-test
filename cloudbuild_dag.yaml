@@ -13,7 +13,7 @@ steps:
       - |
         set -euo pipefail
         
-        echo "Airflow DAG Unit Test & Integration Test"
+   
 
         escape_sed_repl() {
             printf '%s' "$1" | sed \
@@ -23,9 +23,8 @@ steps:
        
           
 
-          sed \
-            
-            -e 's|${PROJECT_ID}|'"$PROJECT_ID"'|g' \
+          sed -e 's#\$'"$${d}"'{ENV}#'"$(escape_sed_repl "${_BUCKET_NAME}")"'#g' \
+            -e 's#\$'"$${d}"'{PROJECT_ID}#'"$(escape_sed_repl "${PROJECT_ID}")"'#g' \
             /workspace/config.yaml > /workspace/config-2.yaml
               
         gsutil -m rsync -r -d \

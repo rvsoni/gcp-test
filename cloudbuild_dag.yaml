@@ -38,6 +38,12 @@ steps:
 
         echo "Verifying baseline container Airflow version..."
         python3 -m airflow version
+        
+        echo "Initializing test database schema..."
+        python3 -m airflow db migrate
+
+        echo "Validating DAG integrity matrix..."
+        python3 -m airflow dags list
 
         echo "Installing UV package manager..."
         python3 -m pip install --no-cache-dir uv
@@ -49,9 +55,3 @@ steps:
 
         echo "Installing local package in editable development mode..."
         python3 -m pip install --system -e . 2>/dev/null || python3 -m pip install -e .
-
-        echo "Initializing test database schema..."
-        python3 -m airflow db migrate
-
-        echo "Validating DAG integrity matrix..."
-        python3 -m airflow dags list

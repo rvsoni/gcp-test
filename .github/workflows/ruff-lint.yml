@@ -28,4 +28,5 @@ jobs:
         env:
           VALIDATE_ALL_CODEBASE: false # Only scan files changed in the PR
           VALIDATE_PYTHON_RUFF: true
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

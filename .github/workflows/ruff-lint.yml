@@ -11,35 +11,21 @@ jobs:
     runs-on: ubuntu-latest
     # Required permissions to post review comments to the PR
     permissions:
-      contents: read
+      # contents permission to clone the repository
       pull-requests: write
+      # To report GitHub Actions status checks. Omit if you don't need
+      # to update commit status
+      statuses: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          fetch-depth: 0
 
-      - name: Install Ruff
-        run: pip install ruff
-
-      # Setup Reviewdog binary executable
-      - name: Set up Reviewdog
-        uses: reviewdog/action-setup@v1
-        with:
-          reviewdog_version: latest
-
-      # Execute Ruff, format as rdjson, and pipe to reviewdog
-      - name: Post Lint Errors as PR Comments
+      - name: Lint Code Base
+        uses: super-linter/super-linter@v7
         env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ruff check --output-format=rdjson . | reviewdog \
-            -f=rdjson \
-            -name="ruff" \
-            -reporter=github-pr-review \
-            -filter-mode=added \
-            -fail-level=error
+          VALIDATE_ALL_CODEBASE: false # Only scan files changed in the PR
+          VALIDATE_PYTHON_RUFF: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

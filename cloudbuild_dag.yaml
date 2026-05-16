@@ -16,29 +16,40 @@ steps:
     entrypoint: bash
 
     env:
-      - 'AIRFLOW_HOME=/tmp/.airflow'
+      
       - 'AIRFLOW__CORE__DAGS_FOLDER=/workspace/dags'
       - 'AIRFLOW__CORE__LOAD_EXAMPLES=False'
       - 'AIRFLOW__CORE__UNIT_TEST_MODE=True'
       - 'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/.airflow/airflow.db'
-      - 'PYTHONPATH=/workspace/src:/workspace/dags:/home/airflow/.local/lib/python3.13/site-packages'
 
     args:
       - -c
       - |
         set -euo pipefail
 
-        export PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        #export PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
         echo "Python Environment details:"
         python3 --version
 
         echo "Verifying baseline container Airflow version..."
         python3 -m airflow version
+
+        echo "Initializing test database schema..."
+        python3 -m airflow db migrate
         
         echo "Starting Airflow services..."
-        /entrypoint &
-        sleep 300
+        /entrypoint webserver &
+
+        API_PID=$!
+        # Wait until healthy (better than sleep 30)
+        for i in $(seq 1 60); do
+          if curl -sf http://localhost:8080/health >/dev/null 2>&1; then
+            echo "Airflow webserver is up"
+            break
+          fi
+          sleep 2
+        done
         
         echo "Airflow services started..."
         

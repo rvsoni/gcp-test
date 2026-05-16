@@ -35,12 +35,6 @@ steps:
         python3 --version
         which airflow
 
-        echo "Installing project dependencies (with Airflow constraints, same as docker/Dockerfile)..."
-        python3 -m pip install --no-cache-dir \
-          -r requirements.txt \
-          -r requirements-dev.txt \
-          --constraint "$${AIRFLOW_CONSTRAINTS_URL}"
-
         echo "Verifying Airflow CLI..."
         airflow version
 

@@ -38,4 +38,7 @@ steps:
         
         echo "Starting Airflow services..."
         /entrypoint &
-        sleep 30
+        sleep 300
+        
+        echo "Airflow services started..."
+        

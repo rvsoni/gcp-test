@@ -49,7 +49,7 @@ steps:
         airflow db migrate
         
         echo "Starting Airflow services..."
-        /entrypoint webserver &
+        airflow api-server &
 
         API_PID=$!
         # Wait until healthy (better than sleep 30)

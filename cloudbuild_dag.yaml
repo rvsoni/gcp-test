@@ -3,26 +3,39 @@ logsBucket: '${_BUILD_LOGS_BUCKET}'
 options:
   logging: GCS_ONLY
 
+timeout: '1800s'
+
+substitutions:
+  _AIRFLOW_VERSION: '3.1.7'
+  _PYTHON_VERSION: '3.11'
+
 steps:
   - id: airflow-dag-itest
-    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    name: 'apache/airflow:${_AIRFLOW_VERSION}-python${_PYTHON_VERSION}'
+    dir: /workspace
     entrypoint: bash
-    
+
+    env:
+      - 'AIRFLOW_HOME=/tmp/.airflow'
+      - 'AIRFLOW__CORE__DAGS_FOLDER=/workspace/dags'
+      - 'AIRFLOW__CORE__LOAD_EXAMPLES=False'
+      - 'AIRFLOW__CORE__UNIT_TEST_MODE=True'
+      - 'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/.airflow/airflow.db'
+      - 'PYTHONPATH=/workspace/src:/workspace/dags:/home/airflow/.local/lib/python3.13/site-packages'
+
     args:
       - -c
       - |
         set -euo pipefail
 
-        escape_sed_repl() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/&/\\&/g'; }
-        sed -e 's#\$${ENV}#'"$(escape_sed_repl "${_BUCKET_NAME}")"'#g' \
-            -e 's#\$${PROJECT_ID}#'"$(escape_sed_repl "${PROJECT_ID}")"'#g' \
-          /workspace/config.yaml > /workspace/config-2.yaml
+        export PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+        echo "Python Environment details:"
+        python3 --version
+
+        echo "Verifying baseline container Airflow version..."
+        python3 -m airflow version
         
-        cat /workspace/config-2.yaml
-        
-        gsutil -m rsync -r -d \
-          -x '^\.git/.*' \
-          -x '.*/__pycache__/.*' \
-          -x '.*\.pyc$$' \
-          /workspace "gs://${_BUCKET_NAME}/"
-      
+        echo "Starting Airflow services..."
+        /entrypoint &
+        sleep 30

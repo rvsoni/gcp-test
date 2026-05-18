@@ -1,43 +1,24 @@
 logsBucket: '${_BUILD_LOGS_BUCKET}'
 
 substitutions:
-  # Existing bucket (name or gs:// URI); optional — omit to skip GCS
-  #_RUFF_REPORTS_BUCKET: ''
-  # Used when REPO_FULL_NAME is not provided by the GitHub trigger
   _GITHUB_REPO_NAME: 'deal-health-score-dags'
 
 options:
   logging: GCS_ONLY
 
 steps:
+  # Distroless image: use default "ruff" entrypoint only (no shell).
   - id: ruff-check
     name: ghcr.io/astral-sh/ruff:0.15.13
     dir: /workspace
-    entrypoint: sh
+    allowFailure: true
     args:
-      - -c
-      - |
-        set -eu
-        mkdir -p build-reports
-        ruff --version
+      - check
+      - .
+      - --output-format=github
+      - --output-file=ruff-github.txt
 
-        echo "Running Ruff (GitHub format)..."
-        set +e
-        ruff check . --output-format=github --output-file=build-reports/ruff-github.txt
-        rc=$$?
-        set -e
-
-        echo "$${rc}" > /tmp/ruff-exit-code.txt
-
-        echo ""
-        echo "========== Ruff GitHub report =========="
-        if [ -s build-reports/ruff-github.txt ]; then
-          cat build-reports/ruff-github.txt
-        elif [ "$${rc}" -eq 0 ]; then
-          echo "No issues — Ruff check passed."
-        fi
-        echo "======================================="
-
+  # Shell step: print report, post each finding to Cloud Logging, fail PR if needed.
   - id: ruff-report
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     dir: /workspace
@@ -52,53 +33,40 @@ steps:
         repo_safe="$$(echo "$${repo}" | tr '/:' '-' | tr -cd '[:alnum:]._-' | tr '[:upper:]' '[:lower:]')"
         repo_safe="$${repo_safe:-unknown-repo}"
         build_date="$$(date -u +%Y-%m-%d)"
-        rc="$$(cat /tmp/ruff-exit-code.txt)"
-
-        if [ "$${rc}" -eq 0 ]; then
-          status="PASSED"
-          severity="INFO"
-        else
-          status="FAILED"
-          severity="ERROR"
-        fi
-
-
-
         log_name="ruff-$${repo_safe}"
+
+        echo "========== Ruff GitHub report =========="
+        if [ -s ruff-github.txt ]; then
+          cat ruff-github.txt
+        else
+          echo "No issues — Ruff check passed."
+        fi
+        echo "======================================="
+
         finding_count=0
-        if [ -f build-reports/ruff-github.txt ]; then
+        if [ -f ruff-github.txt ]; then
           while IFS= read -r line || [ -n "$${line}" ]; do
             [ -z "$${line}" ] && continue
             case "$${line}" in
-              ::error*)
-                entry_severity="ERROR"
-                ;;
-              ::warning*)
-                entry_severity="WARNING"
-                ;;
-              ::notice*)
-                entry_severity="INFO"
-                ;;
-              *)
-                continue
-                ;;
+              ::error*)   entry_severity="ERROR" ;;
+              ::warning*) entry_severity="WARNING" ;;
+              ::notice*)  entry_severity="INFO" ;;
+              *) continue ;;
             esac
             gcloud logging write "$${log_name}" "$${line}" \
               --payload-type=text \
               --severity="$${entry_severity}"
             finding_count=$$((finding_count + 1))
-          done < build-reports/ruff-github.txt
+          done < ruff-github.txt
         fi
 
         if [ "$${finding_count}" -eq 0 ]; then
           gcloud logging write "$${log_name}" \
-            "Ruff $${status} | $${repo} | $${build_date} | build $${BUILD_ID}" \
-            --severity="$${severity}"
+            "Ruff PASSED | $${repo} | $${build_date} | build $${BUILD_ID}" \
+            --severity=INFO
+          echo "Ruff check passed."
         else
-          echo "Posted $${finding_count} Ruff finding(s) to Cloud Logging log: $${log_name}"
-        fi
-
-        if [ "$${rc}" -ne 0 ]; then
-          echo "ERROR: Ruff check failed. Fix issues before merging."
-          exit "$${rc}"
+          echo "Posted $${finding_count} finding(s) to log $${log_name}"
+          echo "ERROR: Ruff check failed. Fix lint issues before merging."
+          exit 1
         fi

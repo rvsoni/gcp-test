@@ -7,7 +7,6 @@ options:
   logging: GCS_ONLY
 
 steps:
-  # Distroless image: use default "ruff" entrypoint only (no shell).
   - id: ruff-check
     name: ghcr.io/astral-sh/ruff:0.15.13
     dir: /workspace
@@ -15,10 +14,9 @@ steps:
     args:
       - check
       - .
-      - --output-format=github
-      - --output-file=ruff-github.txt
+      - --output-format=json
+      - --output-file=ruff.json
 
-  # Shell step: print report, post each finding to Cloud Logging, fail PR if needed.
   - id: ruff-report
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     dir: /workspace
@@ -29,44 +27,78 @@ steps:
       - |
         set -euo pipefail
 
-        repo="$${REPO_FULL_NAME:-${_GITHUB_REPO_NAME}}"
-        repo_safe="$$(echo "$${repo}" | tr '/:' '-' | tr -cd '[:alnum:]._-' | tr '[:upper:]' '[:lower:]')"
-        repo_safe="$${repo_safe:-unknown-repo}"
-        build_date="$$(date -u +%Y-%m-%d)"
-        log_name="ruff-$${repo_safe}"
+        export REPO="$${REPO_FULL_NAME:-${_GITHUB_REPO_NAME}}"
+        export BUILD_ID="${BUILD_ID}"
+        export BUILD_DATE="$$(date -u +%Y-%m-%d)"
+        export LOG_NAME="ruff-$$(echo "$${REPO}" | tr '/:' '-' | tr -cd '[:alnum:]._-' | tr '[:upper:]' '[:lower:]')"
 
-        echo "========== Ruff GitHub report =========="
-        if [ -s ruff-github.txt ]; then
-          cat ruff-github.txt
-        else
-          echo "No issues — Ruff check passed."
-        fi
-        echo "======================================="
+        python3 <<'PY'
+        import json
+        import os
+        import subprocess
+        from pathlib import Path
 
-        finding_count=0
-        if [ -f ruff-github.txt ]; then
-          while IFS= read -r line || [ -n "$${line}" ]; do
-            [ -z "$${line}" ] && continue
-            case "$${line}" in
-              ::error*)   entry_severity="ERROR" ;;
-              ::warning*) entry_severity="WARNING" ;;
-              ::notice*)  entry_severity="INFO" ;;
-              *) continue ;;
-            esac
-            gcloud logging write "$${log_name}" "$${line}" \
-              --payload-type=text \
-              --severity="$${entry_severity}"
-            finding_count=$$((finding_count + 1))
-          done < ruff-github.txt
-        fi
+        repo = os.environ["REPO"]
+        build_id = os.environ["BUILD_ID"]
+        build_date = os.environ["BUILD_DATE"]
+        log_name = os.environ["LOG_NAME"]
 
-        if [ "$${finding_count}" -eq 0 ]; then
-          gcloud logging write "$${log_name}" \
-            "Ruff PASSED | $${repo} | $${build_date} | build $${BUILD_ID}" \
-            --severity=INFO
-          echo "Ruff check passed."
-        else
-          echo "Posted $${finding_count} finding(s) to log $${log_name}"
-          echo "ERROR: Ruff check failed. Fix lint issues before merging."
-          exit 1
-        fi
+        path = Path("ruff.json")
+        findings = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+        if not isinstance(findings, list):
+            findings = []
+
+        def write_log(payload: dict, severity: str) -> None:
+            line = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+            print(line)
+            subprocess.run(
+                [
+                    "gcloud",
+                    "logging",
+                    "write",
+                    log_name,
+                    line,
+                    "--payload-type=json",
+                    f"--severity={severity}",
+                ],
+                check=True,
+            )
+
+        if not findings:
+            write_log(
+                {
+                    "repository": repo,
+                    "build_id": build_id,
+                    "build_date": build_date,
+                    "status": "PASSED",
+                    "finding_count": 0,
+                },
+                "INFO",
+            )
+            print("Ruff check passed.")
+            raise SystemExit(0)
+
+        print(f"========== Ruff findings ({len(findings)}) ==========")
+        for item in findings:
+            loc = item.get("location") or {}
+            end = item.get("end_location") or {}
+            entry = {
+                "repository": repo,
+                "build_id": build_id,
+                "build_date": build_date,
+                "status": "FAILED",
+                "rule": item.get("code"),
+                "file": item.get("filename"),
+                "line": loc.get("row"),
+                "column": loc.get("column"),
+                "end_line": end.get("row"),
+                "end_column": end.get("column"),
+                "message": item.get("message"),
+                "url": item.get("url"),
+            }
+            write_log(entry, "ERROR")
+
+        print(f"Posted {len(findings)} JSON log entry/entries to {log_name}")
+        print("ERROR: Ruff check failed. Fix lint issues before merging.")
+        raise SystemExit(1)
+        PY
